@@ -259,3 +259,39 @@ DEP_sf <- charger_carte(COG=2021, nivsupra = "DEP")
 
 
 
+# Divers photo black and white btb
+library(magick)
+url <- "https://images.pexels.com/photos/6741390/pexels-photo-6741390.jpeg?auto=compress&cs=tinysrgb&w=600"
+url <- "https://data.pixiz.com/output/preview/400x400/1/6/3/1/1361_86350.jpg"
+raster <- as.raster(image_read(url))
+intensity <- apply(raster,1:2, function(x){col2rgb(x)[1]})
+
+sfc = st_sfc(st_polygon(list(rbind(c(0,0), c(ncol(intensity)*100,0), c(ncol(intensity)*100,nrow(intensity)*100), c(0,nrow(intensity)*100), c(0,0)))))
+grid = st_as_sf(st_make_grid(sfc, cellsize = 100, square=TRUE))
+grid <- cbind(grid,as.vector(intensity))
+grid <- cbind(grid, st_coordinates(st_centroid(grid)))
+colnames(grid)[which(colnames(grid)%in%c("x"))] <- "geometry"
+colnames(grid)[which(colnames(grid)%in%c("X","Y"))] <- c("x","y")
+st_geometry(grid) <- "geometry"
+grid <- st_set_crs(grid, 4326)
+smooth_density <- btb_smooth(
+  pts = grid %>% st_drop_geometry(),
+  sEPSG = 4326,
+  iBandwidth = 6000,
+  iCellSize = 100, 
+  iNeighbor = 0) %>% 
+  mutate(as.vector.intensity.=ifelse(as.vector.intensity.>255,255,as.vector.intensity.))
+
+toto <- sapply(smooth_density$as.vector.intensity., function(x)
+  rgb(x, x, x, maxColorValue=255)) 
+
+toto <- matrix(toto, nrow=nrow(raster),ncol=ncol(raster), byrow = FALSE)
+t <- as.raster(toto, nrow=nrow(raster),ncol=ncol(raster))
+plot(raster)
+plot(t)
+
+
+head(grid)
+head(smooth_density)
+
+sum(grid$as.vector.intensity.)
